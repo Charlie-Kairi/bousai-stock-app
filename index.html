@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="防災備蓄" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>防災備蓄チェック</title>
+  <style>
+    :root{
+      --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+      --ok:#166534; --okbg:#dcfce7; --warn:#92400e; --warnbg:#fef3c7;
+      --bad:#991b1b; --badbg:#fee2e2; --accent:#0f172a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+    .wrap{max-width:860px;margin:0 auto;padding:18px 14px 110px}
+    h1{font-size:24px;margin:4px 0 4px}
+    .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+    .metric .num{font-size:26px;font-weight:800;line-height:1.1}
+    .metric .label{font-size:12px;color:var(--muted);margin-top:5px}
+    .section-title{font-size:15px;font-weight:800;margin:22px 0 10px}
+    .progress{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:10px}
+    .progress > span{display:block;height:100%;background:#0f172a;width:0}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input,select,button{font:inherit}
+    input[type="search"],input[type="number"],input[type="date"],select{
+      border:1px solid var(--line);border-radius:10px;background:white;padding:10px 11px;color:var(--ink)
+    }
+    input[type="search"]{width:100%}
+    button{border:0;border-radius:11px;padding:10px 13px;font-weight:700;cursor:pointer}
+    .primary{background:var(--accent);color:#fff}
+    .ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+    .danger{background:#fff;color:var(--bad);border:1px solid #fecaca}
+    .filters{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:8px}
+    .item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:9px}
+    .item-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .name{font-weight:800;font-size:15px}
+    .meta{color:var(--muted);font-size:12px;margin-top:3px}
+    .badge{font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;white-space:nowrap}
+    .ok{background:var(--okbg);color:var(--ok)}
+    .warn{background:var(--warnbg);color:var(--warn)}
+    .bad{background:var(--badbg);color:var(--bad)}
+    .fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+    .field label{display:block;font-size:11px;color:var(--muted);margin:0 0 5px 2px}
+    .field input{width:100%}
+    .small{font-size:12px;color:var(--muted)}
+    .notice{font-size:13px;line-height:1.55}
+    .sticky{position:fixed;left:0;right:0;bottom:0;background:rgba(248,250,252,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:5}
+    .sticky .inner{max-width:860px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .hidden{display:none!important}
+    .settings{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end}
+    .settings .field select{width:100%}
+    .footer-actions{display:flex;gap:8px;flex-wrap:wrap}
+    @media(max-width:640px){
+      .grid{grid-template-columns:repeat(3,1fr)}
+      .metric .num{font-size:22px}
+      .filters{grid-template-columns:1fr 1fr}
+      .filters input[type="search"]{grid-column:1/-1}
+      .fields{grid-template-columns:1fr 1fr}
+      .fields .expiry{grid-column:1/-1}
+      .settings{grid-template-columns:1fr 1fr}
+      .settings .field:last-child{grid-column:1/-1}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>防災備蓄チェック</h1>
+  <div class="sub">2人・7日分を初期基準にした家庭用チェックアプリ</div>
+
+  <div class="grid">
+    <div class="card metric"><div class="num" id="progressNum">0%</div><div class="label">目標達成率</div></div>
+    <div class="card metric"><div class="num" id="shortNum">0</div><div class="label">不足項目</div></div>
+    <div class="card metric"><div class="num" id="expiryNum">0</div><div class="label">期限注意</div></div>
+  </div>
+
+  <div class="card" style="margin-top:10px">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div style="font-weight:800">定期点検</div>
+        <div class="small">最終点検：<span id="lastChecked">未実施</span> ／ 次回：<span id="nextCheck">未設定</span></div>
+      </div>
+      <span id="checkBadge" class="badge warn">未設定</span>
+    </div>
+    <div class="progress"><span id="progressBar"></span></div>
+  </div>
+
+  <div class="section-title">絞り込み</div>
+  <div class="filters">
+    <input id="search" type="search" placeholder="品目を検索" />
+    <select id="categoryFilter">
+      <option value="">すべての分類</option>
+    </select>
+    <select id="statusFilter">
+      <option value="">すべての状態</option>
+      <option value="bad">不足</option>
+      <option value="warn">期限注意</option>
+      <option value="ok">OK</option>
+    </select>
+  </div>
+
+  <div class="section-title">備蓄一覧</div>
+  <div id="items"></div>
+
+  <div class="section-title">点検設定</div>
+  <div class="card">
+    <div class="settings">
+      <div class="field">
+        <label>点検間隔</label>
+        <select id="intervalMonths">
+          <option value="1">1か月</option>
+          <option value="3">3か月</option>
+          <option value="6">6か月</option>
+          <option value="12">12か月</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>期限注意を出す日数</label>
+        <select id="expiryWarningDays">
+          <option value="30">30日前</option>
+          <option value="60">60日前</option>
+          <option value="90">90日前</option>
+          <option value="180">180日前</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>次回点検日</label>
+        <input id="nextCheckInput" type="date" />
+      </div>
+    </div>
+    <div class="footer-actions" style="margin-top:12px">
+      <button class="ghost" id="calendarBtn">iPhoneカレンダー用ICSを作る</button>
+      <button class="ghost" id="exportBtn">バックアップを書き出す</button>
+      <label class="ghost" style="padding:10px 13px;border-radius:11px;font-weight:700;cursor:pointer">
+        バックアップを復元
+        <input id="importFile" type="file" accept="application/json" class="hidden" />
+      </label>
+      <button class="danger" id="resetBtn">初期化</button>
+    </div>
+    <div class="notice small" style="margin-top:10px">
+      データはこの端末のブラウザ内に保存されます。Safariの履歴・Webサイトデータを消すと消える場合があるため、定期的なバックアップを推奨します。
+    </div>
+  </div>
+</div>
+
+<div class="sticky">
+  <div class="inner">
+    <button class="ghost" id="showShortBtn">不足だけ見る</button>
+    <button class="primary" id="completeCheckBtn">今日、点検完了</button>
+  </div>
+</div>
+
+<script>
+const DEFAULT_ITEMS = [
+  {cat:"水・食料", name:"飲料・調理用水", target:42, unit:"L"},
+  {cat:"水・食料", name:"食料", target:42, unit:"食"},
+  {cat:"水・食料", name:"肉・魚・豆の缶詰", target:12, unit:"個"},
+  {cat:"水・食料", name:"野菜ジュース・果物缶", target:10, unit:"個"},
+  {cat:"調理", name:"カセットコンロ", target:1, unit:"台"},
+  {cat:"調理", name:"カセットボンベ", target:12, unit:"本"},
+  {cat:"調理", name:"紙皿・紙コップ・箸", target:20, unit:"セット"},
+  {cat:"調理", name:"食品用ラップ", target:2, unit:"本"},
+  {cat:"トイレ・衛生", name:"災害用トイレ", target:80, unit:"回分"},
+  {cat:"トイレ・衛生", name:"防臭袋", target:40, unit:"枚"},
+  {cat:"トイレ・衛生", name:"45Lごみ袋", target:40, unit:"枚"},
+  {cat:"トイレ・衛生", name:"トイレットペーパー", target:8, unit:"ロール"},
+  {cat:"トイレ・衛生", name:"ウェットティッシュ", target:6, unit:"パック"},
+  {cat:"トイレ・衛生", name:"体拭きシート", target:3, unit:"パック"},
+  {cat:"トイレ・衛生", name:"ドライシャンプー", target:1, unit:"本"},
+  {cat:"トイレ・衛生", name:"マスク", target:30, unit:"枚"},
+  {cat:"トイレ・衛生", name:"歯ブラシ", target:2, unit:"本"},
+  {cat:"照明・電源", name:"LEDヘッドライト", target:2, unit:"個"},
+  {cat:"照明・電源", name:"LEDランタン", target:2, unit:"個"},
+  {cat:"照明・電源", name:"モバイルバッテリー", target:2, unit:"台"},
+  {cat:"照明・電源", name:"乾電池", target:2, unit:"交換分"},
+  {cat:"照明・電源", name:"携帯ラジオ", target:1, unit:"台"},
+  {cat:"医療・安全", name:"常備薬", target:7, unit:"日分"},
+  {cat:"医療・安全", name:"救急セット", target:1, unit:"組"},
+  {cat:"医療・安全", name:"ヘルメット・防災頭巾", target:2, unit:"個"},
+  {cat:"医療・安全", name:"ホイッスル", target:2, unit:"個"},
+  {cat:"医療・安全", name:"軍手・作業用手袋", target:4, unit:"組"},
+  {cat:"医療・安全", name:"厚底の靴・スリッパ", target:2, unit:"足"},
+  {cat:"防寒・生活", name:"アルミ保温シート", target:4, unit:"枚"},
+  {cat:"防寒・生活", name:"毛布・寝袋", target:2, unit:"人分"},
+  {cat:"防寒・生活", name:"給水タンク", target:40, unit:"L分"},
+  {cat:"防寒・生活", name:"タオル", target:8, unit:"枚"},
+  {cat:"防寒・生活", name:"着替え・下着", target:6, unit:"セット"},
+  {cat:"補修・書類", name:"布テープ", target:2, unit:"巻"},
+  {cat:"補修・書類", name:"ブルーシート", target:2, unit:"枚"},
+  {cat:"補修・書類", name:"現金（小銭・千円札）", target:1, unit:"セット"},
+  {cat:"補修・書類", name:"身分証・保険情報コピー", target:2, unit:"人分"},
+  {cat:"補修・書類", name:"緊急連絡先・集合場所メモ", target:2, unit:"部"},
+  {cat:"非常持出袋", name:"持出袋の飲料水", target:2, unit:"L"},
+  {cat:"非常持出袋", name:"持出袋の調理不要食", target:6, unit:"食"},
+  {cat:"非常持出袋", name:"持出袋の災害用トイレ", target:10, unit:"回分"},
+  {cat:"非常持出袋", name:"持出袋の雨具", target:2, unit:"人分"},
+  {cat:"非常持出袋", name:"持出袋の緊急連絡先カード", target:2, unit:"枚"}
+];
+
+const KEY = "bousaiStockV1";
+const todayISO = () => new Date().toISOString().slice(0,10);
+function addMonthsISO(dateStr, months){
+  const d = new Date((dateStr || todayISO()) + "T12:00:00");
+  d.setMonth(d.getMonth() + Number(months));
+  return d.toISOString().slice(0,10);
+}
+function loadState(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if(saved && Array.isArray(saved.items)) return saved;
+  }catch(e){}
+  return {
+    items: DEFAULT_ITEMS.map((x,i)=>({...x,id:i+1,current:0,expiry:""})),
+    settings:{intervalMonths:3, expiryWarningDays:60},
+    lastChecked:"",
+    nextCheck:""
+  };
+}
+let state = loadState();
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function statusFor(item){
+  const enough = Number(item.current||0) >= Number(item.target||0);
+  const warnDays = Number(state.settings.expiryWarningDays||60);
+  let expiring = false, expired = false;
+  if(item.expiry){
+    const today = new Date(todayISO()+"T00:00:00");
+    const exp = new Date(item.expiry+"T00:00:00");
+    const diff = Math.ceil((exp-today)/86400000);
+    expired = diff < 0;
+    expiring = diff >= 0 && diff <= warnDays;
+  }
+  if(!enough || expired) return {key:"bad", label: expired ? "期限切れ" : "不足"};
+  if(expiring) return {key:"warn", label:"期限注意"};
+  return {key:"ok", label:"OK"};
+}
+
+function renderCategories(){
+  const sel = document.getElementById("categoryFilter");
+  const current = sel.value;
+  const cats = [...new Set(state.items.map(x=>x.cat))];
+  sel.innerHTML = '<option value="">すべての分類</option>' + cats.map(c=>`<option>${c}</option>`).join("");
+  sel.value = current;
+}
+
+function render(){
+  renderCategories();
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const cf = document.getElementById("categoryFilter").value;
+  const sf = document.getElementById("statusFilter").value;
+  const holder = document.getElementById("items");
+
+  const filtered = state.items.filter(item=>{
+    const st = statusFor(item);
+    return (!q || item.name.toLowerCase().includes(q)) && (!cf || item.cat===cf) && (!sf || st.key===sf);
+  });
+
+  holder.innerHTML = filtered.map(item=>{
+    const st = statusFor(item);
+    return `<div class="item">
+      <div class="item-top">
+        <div>
+          <div class="name">${item.name}</div>
+          <div class="meta">${item.cat}</div>
+        </div>
+        <span class="badge ${st.key}">${st.label}</span>
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label>現在数（${item.unit}）</label>
+          <input type="number" inputmode="decimal" min="0" step="any" value="${item.current}" data-id="${item.id}" data-field="current">
+        </div>
+        <div class="field">
+          <label>目標数（${item.unit}）</label>
+          <input type="number" inputmode="decimal" min="0" step="any" value="${item.target}" data-id="${item.id}" data-field="target">
+        </div>
+        <div class="field expiry">
+          <label>最短期限</label>
+          <input type="date" value="${item.expiry||""}" data-id="${item.id}" data-field="expiry">
+        </div>
+      </div>
+    </div>`;
+  }).join("") || '<div class="card small">該当する品目はありません。</div>';
+
+  const statuses = state.items.map(statusFor);
+  const okCount = statuses.filter(x=>x.key==="ok" || x.key==="warn").length;
+  const short = statuses.filter(x=>x.key==="bad").length;
+  const expiry = statuses.filter(x=>x.key==="warn").length;
+  const pct = Math.round(okCount/state.items.length*100);
+
+  document.getElementById("progressNum").textContent = pct+"%";
+  document.getElementById("shortNum").textContent = short;
+  document.getElementById("expiryNum").textContent = expiry;
+  document.getElementById("progressBar").style.width = pct+"%";
+  document.getElementById("lastChecked").textContent = state.lastChecked || "未実施";
+  document.getElementById("nextCheck").textContent = state.nextCheck || "未設定";
+  document.getElementById("nextCheckInput").value = state.nextCheck || "";
+  document.getElementById("intervalMonths").value = String(state.settings.intervalMonths||3);
+  document.getElementById("expiryWarningDays").value = String(state.settings.expiryWarningDays||60);
+
+  const badge = document.getElementById("checkBadge");
+  if(!state.nextCheck){
+    badge.className="badge warn"; badge.textContent="未設定";
+  }else if(state.nextCheck < todayISO()){
+    badge.className="badge bad"; badge.textContent="点検期限超過";
+  }else{
+    badge.className="badge ok"; badge.textContent="点検予定あり";
+  }
+}
+
+document.addEventListener("input", e=>{
+  if(e.target.matches("[data-id]")){
+    const id = Number(e.target.dataset.id);
+    const item = state.items.find(x=>x.id===id);
+    if(item){
+      item[e.target.dataset.field] = e.target.dataset.field==="expiry" ? e.target.value : Number(e.target.value||0);
+      save(); render();
+    }
+  }
+});
+["search","categoryFilter","statusFilter"].forEach(id=>{
+  document.getElementById(id).addEventListener(id==="search"?"input":"change", render);
+});
+document.getElementById("intervalMonths").addEventListener("change", e=>{
+  state.settings.intervalMonths = Number(e.target.value); save();
+});
+document.getElementById("expiryWarningDays").addEventListener("change", e=>{
+  state.settings.expiryWarningDays = Number(e.target.value); save(); render();
+});
+document.getElementById("nextCheckInput").addEventListener("change", e=>{
+  state.nextCheck = e.target.value; save(); render();
+});
+document.getElementById("completeCheckBtn").addEventListener("click", ()=>{
+  state.lastChecked = todayISO();
+  state.nextCheck = addMonthsISO(state.lastChecked, state.settings.intervalMonths);
+  save(); render();
+});
+document.getElementById("showShortBtn").addEventListener("click", ()=>{
+  document.getElementById("statusFilter").value = "bad"; render(); window.scrollTo({top:330,behavior:"smooth"});
+});
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`防災備蓄バックアップ_${todayISO()}.json`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+document.getElementById("importFile").addEventListener("change", async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  try{
+    const obj=JSON.parse(await f.text());
+    if(!obj.items || !Array.isArray(obj.items)) throw new Error();
+    state=obj; save(); render(); alert("復元しました");
+  }catch(err){ alert("バックアップファイルを読み込めませんでした"); }
+  e.target.value="";
+});
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  if(confirm("入力した在庫・期限・点検履歴をすべて初期化しますか？")){
+    localStorage.removeItem(KEY); state=loadState(); render();
+  }
+});
+document.getElementById("calendarBtn").addEventListener("click", ()=>{
+  const date = state.nextCheck || addMonthsISO(todayISO(), state.settings.intervalMonths);
+  const compact = date.replaceAll("-","");
+  const months = Number(state.settings.intervalMonths||3);
+  const ics = [
+    "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Bousai Stock Check//JA",
+    "BEGIN:VEVENT",
+    `DTSTART;VALUE=DATE:${compact}`,
+    `DTEND;VALUE=DATE:${compact}`,
+    "SUMMARY:防災備蓄の定期点検",
+    "DESCRIPTION:水・食料・災害用トイレ・電源・期限を確認する",
+    `RRULE:FREQ=MONTHLY;INTERVAL=${months}`,
+    "BEGIN:VALARM","TRIGGER:-P1D","ACTION:DISPLAY","DESCRIPTION:防災備蓄の点検日です","END:VALARM",
+    "END:VEVENT","END:VCALENDAR"
+  ].join("\r\n");
+  const blob = new Blob([ics],{type:"text/calendar;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="防災備蓄_定期点検.ics"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+render();
+</script>
+</body>
+</html>

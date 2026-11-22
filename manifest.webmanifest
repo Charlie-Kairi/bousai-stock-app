@@ -1,0 +1,9 @@
+{
+  "name": "防災備蓄チェック",
+  "short_name": "防災備蓄",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "lang": "ja"
+}
