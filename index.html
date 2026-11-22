@@ -319,8 +319,26 @@ document.addEventListener("input", e=>{
     const id = Number(e.target.dataset.id);
     const item = state.items.find(x=>x.id===id);
     if(item){
-      item[e.target.dataset.field] = e.target.dataset.field==="expiry" ? e.target.value : Number(e.target.value||0);
-      save(); render();
+      item[e.target.dataset.field] =
+        e.target.dataset.field==="expiry"
+          ? e.target.value
+          : Number(e.target.value||0);
+      save();
+    }
+  }
+});
+
+document.addEventListener("change", e=>{
+  if(e.target.matches("[data-id]")){
+    const id = Number(e.target.dataset.id);
+    const item = state.items.find(x=>x.id===id);
+    if(item){
+      item[e.target.dataset.field] =
+        e.target.dataset.field==="expiry"
+          ? e.target.value
+          : Number(e.target.value||0);
+      save();
+      render();
     }
   }
 });
