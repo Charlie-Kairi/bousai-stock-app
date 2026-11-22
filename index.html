@@ -356,8 +356,24 @@ document.getElementById("nextCheckInput").addEventListener("change", e=>{
 });
 document.getElementById("completeCheckBtn").addEventListener("click", ()=>{
   state.lastChecked = todayISO();
-  state.nextCheck = addMonthsISO(state.lastChecked, state.settings.intervalMonths);
-  save(); render();
+  state.nextCheck = addMonthsISO(
+    state.lastChecked,
+    state.settings.intervalMonths
+  );
+
+  save();
+  render();
+
+  const btn = document.getElementById("completeCheckBtn");
+  const originalText = btn.textContent;
+
+  btn.textContent = "✓ 点検完了";
+  btn.disabled = true;
+
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }, 2000);
 });
 document.getElementById("showShortBtn").addEventListener("click", ()=>{
   document.getElementById("statusFilter").value = "bad"; render(); window.scrollTo({top:330,behavior:"smooth"});
